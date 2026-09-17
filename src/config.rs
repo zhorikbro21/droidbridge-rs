@@ -68,7 +68,8 @@ impl Config {
         Self::load()
     }
 
-    fn load() -> Result<Self> {
+    /// Load the existing config (errors surface to the caller).
+    pub fn load() -> Result<Self> {
         let path = Self::path()?;
         let raw =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;

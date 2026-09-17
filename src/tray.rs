@@ -11,6 +11,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
@@ -71,6 +72,63 @@ pub fn run(cfg: Config) -> anyhow::Result<()> {
     // Tooltip updates flow from worker threads back to this one.
     let (tip_tx, tip_rx) = mpsc::channel::<String>();
     let main_thread_id = unsafe { GetCurrentThreadId() };
+
+    // Mirror watcher: the phone may appear on adb through paths that
+    // bypass the BT task (adb's own mDNS auto-connect, manual connects).
+    // While the tray sits in the tray anyway, glance at `adb devices`
+    // every 10 s; on none→device transition pop the mirror (if enabled).
+    {
+        let cfg = cfg.clone();
+        let tip_tx = tip_tx.clone();
+        thread::spawn(move || {
+            let mut had_device = adb::resolve_adb(&cfg)
+                .and_then(|adb| adb::connected_device(&adb).ok())
+                .flatten()
+                .is_some();
+            log::write(&format!(
+                "mirror watcher started (device present: {had_device})"
+            ));
+            loop {
+                if EXIT.load(Ordering::Relaxed) {
+                    return;
+                }
+                thread::sleep(Duration::from_secs(10));
+                if EXIT.load(Ordering::Relaxed) {
+                    return;
+                }
+                let cfg = match Config::load() {
+                    Ok(c) => c,
+                    Err(_) => cfg.clone(),
+                };
+                if !cfg.scrcpy_on_connect {
+                    continue;
+                }
+                let Some(adb_path) = adb::resolve_adb(&cfg) else {
+                    continue;
+                };
+                let has_device = matches!(adb::connected_device(&adb_path), Ok(Some(_)));
+                if has_device && !had_device {
+                    match adb::launch_scrcpy_once(&cfg) {
+                        Ok(()) => {
+                            log::write("mirror watcher: device appeared, mirror launched");
+                            let _ = tip_tx.send("droidbridge-rs — mirror launched".into());
+                            unsafe {
+                                PostThreadMessageW(main_thread_id, WM_APP, 0, 0);
+                            }
+                        }
+                        Err(e) => {
+                            log::write(&format!("mirror watcher: {e}"));
+                            let _ = tip_tx.send(format!("droidbridge-rs — {e}"));
+                            unsafe {
+                                PostThreadMessageW(main_thread_id, WM_APP, 0, 0);
+                            }
+                        }
+                    }
+                }
+                had_device = has_device;
+            }
+        });
+    }
 
     log::write("tray started");
     // first-run convenience: nothing configured yet — open Settings
