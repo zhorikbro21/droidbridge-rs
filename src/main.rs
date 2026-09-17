@@ -110,13 +110,28 @@ fn main() -> Result<()> {
     }
 }
 
-/// Poll the phone (cached port, else :53) until it answers or
-/// `waitForWifiSeconds` runs out; then proceed regardless.
+/// Poll until the phone is reachable, then proceed regardless (the
+/// connect flow reports the failure if it is not). The config may name
+/// the tailnet IP while adb actually answers on the LAN/hotspot path,
+/// so mDNS-advertised endpoints are polled too.
 fn wait_for_network(cfg: &Config) {
     let port = portcache::load().first().copied().unwrap_or(53);
     let deadline = Instant::now() + Duration::from_secs(cfg.wait_for_wifi_seconds);
-    while Instant::now() < deadline {
+    loop {
         if scanner::tcp_probe(&cfg.device_host, port, Duration::from_millis(1200)) {
+            return;
+        }
+        for ep in adb::native_mdns_endpoints(Duration::from_secs(2)) {
+            if scanner::tcp_probe(&ep.host, ep.port, Duration::from_millis(1200)) {
+                log::write(&format!(
+                    "network wait: deviceHost {} unreachable, adb lives on {}:{}",
+                    cfg.device_host, ep.host, ep.port
+                ));
+                return;
+            }
+        }
+        if Instant::now() >= deadline {
+            log::write("network wait: deadline hit, proceeding anyway");
             return;
         }
         std::thread::sleep(Duration::from_secs(10));
