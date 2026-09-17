@@ -38,9 +38,10 @@ jobs:
           $stage = "portable"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item target/release/droidbridge_rs.exe $stage/
+          $src = (Get-ChildItem -Recurse -Filter scrcpy.exe scrcpy | Select-Object -First 1).DirectoryName
           $files = "scrcpy.exe", "adb.exe", "SDL2.dll", "AdbWinApi.dll", "AdbWinUsbApiDll.dll"
           foreach ($f in $files) {
-            Copy-Item "scrcpy/scrcpy-win64-v4.0/$f" $stage/
+            Copy-Item (Join-Path $src $f) $stage/
           }
           Compress-Archive -Path "$stage/*" -DestinationPath droidbridge-portable-windows-x64.zip -Force
           Get-ChildItem droidbridge-portable-windows-x64.zip | Select-Object Name, Length
