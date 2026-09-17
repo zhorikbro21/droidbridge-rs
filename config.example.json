@@ -1,0 +1,11 @@
+{
+  "adbPath": "",
+  "scrcpyPath": "",
+  "deviceHost": "",
+  "deviceBtMac": "",
+  "portMin": 32768,
+  "portMax": 60999,
+  "waitForWifiSeconds": 300,
+  "btTriggerEnabled": true,
+  "scrcpyOnConnect": false
+}
