@@ -52,7 +52,8 @@ jobs:
             choco install innosetup -y --no-progress
           }
           if (-not (Test-Path $iscc)) { $iscc = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" }
-          & $iscc "/DSrcExe=target\release" "/DSrcScrcpy=$(Get-Content scrcpy_dir.txt)" "/DDocsDir=." "/DOutputDir=installer" "installer\droidbridge.iss"
+          $ws = (Get-Location).Path
+          & $iscc "/DSrcExe=$ws\target\release" "/DSrcScrcpy=$(Get-Content scrcpy_dir.txt)" "/DDocsDir=$ws" "/DOutputDir=$ws\installer" "installer\droidbridge.iss"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
