@@ -22,3 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--bt-check` (Kernel-PnP event 410 guard via wevtutil, MAC filter,
   network wait up to `waitForWifiSeconds`).
 - Rotating log `droidbridge.log` shared with the PowerShell original.
+- Tray: menu parity, double-click = Mirror, tooltip status updates,
+  named-mutex single instance.
+- Pair and Settings dialogs (egui), one dialog process each; the tray
+  hot-reloads the config before every action.
+- Size-optimized release profile (LTO, strip, opt-level=z): ~9 MB exe.

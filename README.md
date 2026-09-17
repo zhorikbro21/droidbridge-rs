@@ -46,8 +46,8 @@ And nothing reconnects for you when the phone comes back into range.
 | Port cache + mDNS + range scan | ✅ |
 | Headless `--connect` / `--mirror` / `--bt-check` | ✅ |
 | Rotating log (`droidbridge.log`) | ✅ |
-| Tray icon + menu | 🚧 planned |
-| Settings / Pair dialogs | 🚧 planned |
+| Tray icon + menu (single instance, double-click = Mirror) | ✅ |
+| Settings / Pair dialogs | ✅ |
 
 ## How it works
 
@@ -111,8 +111,10 @@ droidbridge_rs.exe --connect        connect to the configured phone, then exit
 droidbridge_rs.exe --mirror         connect, then launch scrcpy
 droidbridge_rs.exe --bt-check       (with --connect) only act on a fresh
                                      Bluetooth connect event of YOUR phone
-droidbridge_rs.exe --pair           pairing dialog / pairing via adb
-droidbridge_rs.exe                  tray mode (once the tray ships)
+droidbridge_rs.exe --pair           pairing dialog
+droidbridge_rs.exe --settings       settings dialog
+droidbridge_rs.exe                  tray mode (menu: Connect now / Mirror /
+                                     Pair device... / Settings... / Open log / Exit)
 ```
 
 Exit codes: `0` success (or already connected), non-zero on failure. The
