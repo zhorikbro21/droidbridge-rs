@@ -45,6 +45,7 @@ And nothing reconnects for you when the phone comes back into range.
 | Config (PS-compatible `config.json`) | ✅ |
 | Port cache + mDNS + range scan | ✅ |
 | Headless `--connect` / `--mirror` / `--bt-check` | ✅ |
+| Rotating log (`droidbridge.log`) | ✅ |
 | Tray icon + menu | 🚧 planned |
 | Settings / Pair dialogs | 🚧 planned |
 
