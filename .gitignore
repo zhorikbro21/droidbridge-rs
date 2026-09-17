@@ -4,3 +4,6 @@
 *.log
 config.json
 portcache.json
+
+# local session docs
+/ИТОГИ_*.md

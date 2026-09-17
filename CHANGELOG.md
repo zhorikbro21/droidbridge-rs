@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Tray mirror watcher: when *Mirror automatically on every connect* is
+  enabled, the mirror opens by itself whenever the phone appears on adb
+  (covers adb's own mDNS auto-connect path). Max 2 tries per appearance;
+  a manually closed mirror is never re-opened until the phone returns.
+
 ## [0.1.1] - 2026-09-17
 
 ### Added

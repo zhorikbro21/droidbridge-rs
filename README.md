@@ -37,7 +37,12 @@ And nothing reconnects for you when the phone comes back into range.
 - **Works over any IP the phone answers on**: home LAN, phone hotspot, or a
   tailnet/overlay address — a Tailscale IP is the most convenient because it
   works at home and away.
-- **Tray app**: connect / mirror / pair / settings from the notification area.
+- **Tray app**: connect / mirror / pair / settings from the notification area;
+  double-click = Mirror, single-instance.
+- **Auto-mirror**: with *Mirror automatically on every connect* enabled
+  (Settings), the mirror window opens by itself whenever the phone appears —
+  at most 2 tries per appearance, and a manually closed mirror stays closed
+  until the phone leaves and returns.
 - **Native**: single exe, instant start, single-digit memory footprint.
 
 | Capability | Status |
