@@ -76,17 +76,21 @@ pub fn run(cfg: Config) -> anyhow::Result<()> {
     // Mirror watcher: the phone may appear on adb through paths that
     // bypass the BT task (adb's own mDNS auto-connect, manual connects).
     // While the tray sits in the tray anyway, glance at `adb devices`
-    // every 10 s; on none→device transition pop the mirror (if enabled).
+    // every 10 s. Rule (Zhora's spec): checkbox on + device connected +
+    // mirror not open → open it, at most 2 tries per appearance. After
+    // a successful open the mirror is never re-opened until the phone
+    // disappears and comes back — manual closes stay manual.
     {
         let cfg = cfg.clone();
         let tip_tx = tip_tx.clone();
         thread::spawn(move || {
-            let mut had_device = adb::resolve_adb(&cfg)
+            let mut was_present = adb::resolve_adb(&cfg)
                 .and_then(|adb| adb::connected_device(&adb).ok())
                 .flatten()
                 .is_some();
+            let mut attempts: i32 = 0; // mirror tries left for this appearance
             log::write(&format!(
-                "mirror watcher started (device present: {had_device})"
+                "mirror watcher started (device present: {was_present})"
             ));
             loop {
                 if EXIT.load(Ordering::Relaxed) {
@@ -106,18 +110,23 @@ pub fn run(cfg: Config) -> anyhow::Result<()> {
                 let Some(adb_path) = adb::resolve_adb(&cfg) else {
                     continue;
                 };
-                let has_device = matches!(adb::connected_device(&adb_path), Ok(Some(_)));
-                if has_device && !had_device {
+                let present = matches!(adb::connected_device(&adb_path), Ok(Some(_)));
+                if present && !was_present {
+                    attempts = 2; // fresh appearance: up to 2 tries
+                }
+                if present && attempts > 0 && !adb::scrcpy_running() {
+                    attempts -= 1;
                     match adb::launch_scrcpy_once(&cfg) {
                         Ok(()) => {
-                            log::write("mirror watcher: device appeared, mirror launched");
+                            attempts = 0; // opened — stay quiet until next appearance
+                            log::write("mirror watcher: device present, mirror launched");
                             let _ = tip_tx.send("droidbridge-rs — mirror launched".into());
                             unsafe {
                                 PostThreadMessageW(main_thread_id, WM_APP, 0, 0);
                             }
                         }
                         Err(e) => {
-                            log::write(&format!("mirror watcher: {e}"));
+                            log::write(&format!("mirror watcher: {e} (tries left: {attempts})"));
                             let _ = tip_tx.send(format!("droidbridge-rs — {e}"));
                             unsafe {
                                 PostThreadMessageW(main_thread_id, WM_APP, 0, 0);
@@ -125,7 +134,7 @@ pub fn run(cfg: Config) -> anyhow::Result<()> {
                         }
                     }
                 }
-                had_device = has_device;
+                was_present = present;
             }
         });
     }
