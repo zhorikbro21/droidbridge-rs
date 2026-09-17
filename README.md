@@ -4,7 +4,7 @@ Native Windows tray utility that auto-connects ADB to your Android phone over
 Wi-Fi the moment the phone reconnects via Bluetooth — plus one-click
 [scrcpy](https://github.com/Genymobile/scrcpy) mirroring.
 
-A Rust port of [DroidBridge](https://github.com/genxp/DroidBridge): one static
+A Rust port of the PowerShell-original DroidBridge: one static
 `droidbridge.exe`, ~5 ms cold start, a few MB of RAM, no PowerShell, no
 ExecutionPolicy dance, no runtime dependencies.
 
