@@ -49,11 +49,11 @@ fn main() -> Result<()> {
 
     let want_connect = cli.connect || cli.mirror || cli.bt_check;
     if !want_connect {
-        println!(
-            "droidbridge_rs {} (config: {})",
-            env!("CARGO_PKG_VERSION"),
-            Config::path()?.display()
-        );
+        if single_instance_running() {
+            println!("droidbridge_rs is already running (tray)");
+            return Ok(());
+        }
+        tray::run(cfg)?;
         return Ok(());
     }
 
@@ -106,5 +106,23 @@ fn wait_for_network(cfg: &Config) {
             return;
         }
         std::thread::sleep(Duration::from_secs(10));
+    }
+}
+
+/// Named-mutex single instance guard for tray mode.
+fn single_instance_running() -> bool {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError};
+        use windows_sys::Win32::System::Threading::CreateMutexW;
+        let name: Vec<u16> = "Local\\DroidBridgeRsSingleton\0".encode_utf16().collect();
+        unsafe {
+            CreateMutexW(std::ptr::null_mut(), 0, name.as_ptr());
+            GetLastError() == ERROR_ALREADY_EXISTS
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        false
     }
 }
