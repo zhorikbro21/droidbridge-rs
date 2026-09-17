@@ -95,3 +95,24 @@ mod tests {
         assert!(!event_xml_matches_mac(usb, "FEDCBA987654"));
     }
 }
+
+#[cfg(test)]
+mod live_tests {
+    use super::*;
+
+    /// End-to-end check of the wevtutil integration and MAC guard against
+    /// the real event log and the real config (no hardcoded stand data).
+    #[test]
+    #[ignore = "live stand: needs a real BT connect in the event log"]
+    fn live_guard_matches_historic_bt_event() {
+        let cfg = crate::config::Config::load_or_create().unwrap();
+        if cfg.device_bt_mac.is_empty() {
+            eprintln!("no deviceBtMac configured, skipping");
+            return;
+        }
+        // three weeks: catches the last real phone BT connect event
+        let matched =
+            recent_bt_connect(&cfg.device_bt_mac, Duration::from_secs(21 * 86400)).unwrap();
+        assert!(matched, "expected a historic 410 event with our MAC");
+    }
+}
