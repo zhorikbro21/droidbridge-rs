@@ -1,14 +1,20 @@
 //! droidbridge-rs: auto-connect ADB over Wi-Fi when the phone comes back.
 
 mod adb;
+mod bt;
 mod config;
+mod log;
 mod portcache;
 mod scanner;
 mod tray;
 
 use std::sync::LazyLock;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use clap::Parser;
+
+use crate::config::Config;
 
 /// Shared tokio runtime for sync code paths that need async internals
 /// (e.g. the port scanner called from the adb connect flow).
@@ -19,31 +25,86 @@ pub static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
         .expect("failed to build tokio runtime")
 });
 
+#[derive(Parser)]
+#[command(
+    name = "droidbridge_rs",
+    version,
+    about = "Auto-connect ADB to your Android phone over Wi-Fi"
+)]
+struct Cli {
+    /// Connect to the configured phone, then exit
+    #[arg(long)]
+    connect: bool,
+    /// Connect, then launch scrcpy
+    #[arg(long)]
+    mirror: bool,
+    /// Only act if our phone just (re)connected via Bluetooth
+    #[arg(long)]
+    bt_check: bool,
+}
+
 fn main() -> Result<()> {
-    let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|a| a == "--version" || a == "-V") {
-        println!("droidbridge_rs {}", env!("CARGO_PKG_VERSION"));
+    let cli = Cli::parse();
+    let cfg = Config::load_or_create()?;
+
+    let want_connect = cli.connect || cli.mirror || cli.bt_check;
+    if !want_connect {
+        println!(
+            "droidbridge_rs {} (config: {})",
+            env!("CARGO_PKG_VERSION"),
+            Config::path()?.display()
+        );
         return Ok(());
     }
 
-    let cfg = config::Config::load_or_create()?;
-
-    // Rudimentary dispatch; grows into full CLI in Stage 3.
-    if args.iter().any(|a| a == "--connect") {
-        let adb = adb::resolve_adb(&cfg).context("adb.exe not found - set adbPath in config")?;
-        match adb::connect_phone(&adb, &cfg, true)? {
-            Some(serial) => {
-                println!("connected: {serial}");
-                return Ok(());
-            }
-            None => anyhow::bail!("could not connect to {}", cfg.device_host),
-        }
+    if cfg.device_host.is_empty() {
+        anyhow::bail!("no phone IP configured - set deviceHost in config");
     }
 
-    println!(
-        "droidbridge_rs {} (config: {})",
-        env!("CARGO_PKG_VERSION"),
-        config::Config::path()?.display()
-    );
-    Ok(())
+    // BT guard: not our phone (or nothing at all) - stay quiet and cheap.
+    if cli.bt_check {
+        let fresh = bt::recent_bt_connect(&cfg.device_bt_mac, Duration::from_secs(90))?;
+        log::write(if fresh {
+            "bt-check: our phone (re)connected via Bluetooth"
+        } else {
+            "bt-check: no matching recent BT event, exiting"
+        });
+        if !fresh {
+            return Ok(());
+        }
+    }
+    // The phone just came into BT range; give its Wi-Fi time to come up.
+    if cli.bt_check {
+        wait_for_network(&cfg);
+    }
+
+    let adb = adb::resolve_adb(&cfg).context("adb.exe not found - set adbPath in config")?;
+    match adb::connect_phone(&adb, &cfg, true)? {
+        Some(serial) => {
+            println!("connected: {serial}");
+            log::write(&format!("connected: {serial}"));
+            if cli.mirror || cfg.scrcpy_on_connect {
+                adb::launch_scrcpy_once(&cfg)?;
+                log::write("scrcpy launched");
+            }
+            Ok(())
+        }
+        None => {
+            log::write(&format!("connect failed on {}", cfg.device_host));
+            anyhow::bail!("could not connect to {}", cfg.device_host)
+        }
+    }
+}
+
+/// Poll the phone (cached port, else :53) until it answers or
+/// `waitForWifiSeconds` runs out; then proceed regardless.
+fn wait_for_network(cfg: &Config) {
+    let port = portcache::load().first().copied().unwrap_or(53);
+    let deadline = Instant::now() + Duration::from_secs(cfg.wait_for_wifi_seconds);
+    while Instant::now() < deadline {
+        if scanner::tcp_probe(&cfg.device_host, port, Duration::from_millis(1200)) {
+            return;
+        }
+        std::thread::sleep(Duration::from_secs(10));
+    }
 }

@@ -56,6 +56,15 @@ pub fn scan_open_ports_blocking(host: &str, min: u16, max: u16) -> Vec<u16> {
     crate::RUNTIME.block_on(scan_open_ports(host, min, max))
 }
 
+/// Single blocking TCP reachability probe.
+pub fn tcp_probe(host: &str, port: u16, timeout: Duration) -> bool {
+    use std::net::TcpStream;
+    let Ok(addr) = format!("{host}:{port}").parse() else {
+        return false;
+    };
+    TcpStream::connect_timeout(&addr, timeout).is_ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

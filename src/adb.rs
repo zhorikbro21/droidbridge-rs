@@ -169,6 +169,14 @@ pub fn connect_phone(adb: &Path, cfg: &Config, allow_scan: bool) -> Result<Optio
     candidates.extend(native_mdns_endpoints(Duration::from_secs(3)));
     candidates.sort_unstable();
     candidates.dedup();
+    crate::log::write(&format!(
+        "candidates from cache+mdns: {}",
+        candidates
+            .iter()
+            .map(|e| format!("{}:{}", e.host, e.port))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ));
 
     for ep in &candidates {
         if let Some(serial) = try_connect(adb, &ep.host, ep.port)? {
@@ -177,17 +185,56 @@ pub fn connect_phone(adb: &Path, cfg: &Config, allow_scan: bool) -> Result<Optio
         }
     }
 
-    // Tier 3: full ephemeral-range scan on the configured host.
+    // Tier 3: full ephemeral-range scan on the configured host — but
+    // only if the host is even reachable; a dead host must fail in
+    // seconds, not after two full 28k-port sweeps.
     if allow_scan {
-        for port in scanner::scan_open_ports_blocking(&host, cfg.port_min, cfg.port_max) {
-            if let Some(serial) = try_connect(adb, &host, port)? {
-                portcache::save(&[port])?;
-                return Ok(Some(serial));
+        let probe_port = portcache::load().first().copied().unwrap_or(53);
+        let reachable = scanner::tcp_probe(&host, probe_port, Duration::from_millis(1200));
+        if reachable {
+            crate::log::write(&format!(
+                "full port scan on {host} ({}-{}) started",
+                cfg.port_min, cfg.port_max
+            ));
+            for port in scanner::scan_open_ports_blocking(&host, cfg.port_min, cfg.port_max) {
+                if let Some(serial) = try_connect(adb, &host, port)? {
+                    portcache::save(&[port])?;
+                    return Ok(Some(serial));
+                }
             }
+        } else {
+            crate::log::write(&format!("host {host} unreachable, skipping scan"));
         }
     }
 
     Ok(None)
+}
+
+/// Is a scrcpy.exe process already running?
+pub fn scrcpy_running() -> bool {
+    let Ok(out) = Command::new("tasklist.exe")
+        .args(["/FI", "IMAGENAME eq scrcpy.exe", "/FO", "CSV", "/NH"])
+        .output()
+    else {
+        return false;
+    };
+    let text = String::from_utf8_lossy(&out.stdout);
+    text.to_lowercase().contains("scrcpy.exe")
+}
+
+/// Launch scrcpy unless an instance is already up (never spawn a second
+/// mirror window).
+pub fn launch_scrcpy_once(cfg: &Config) -> Result<()> {
+    if scrcpy_running() {
+        return Ok(());
+    }
+    let Some(scrcpy) = resolve_scrcpy(cfg) else {
+        anyhow::bail!("scrcpy.exe not found - set scrcpyPath in config");
+    };
+    Command::new(&scrcpy)
+        .spawn()
+        .with_context(|| format!("launching {}", scrcpy.display()))?;
+    Ok(())
 }
 
 /// Locate adb.exe: config path → sibling of scrcpy (version-compatible
