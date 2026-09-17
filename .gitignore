@@ -1,0 +1,6 @@
+/target
+# internal working doc (contains test-stand specifics)
+/TASK.md
+*.log
+config.json
+portcache.json
