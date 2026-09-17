@@ -37,9 +37,9 @@ pub fn run(cfg: Config) -> anyhow::Result<()> {
 
     let connect = MenuItem::with_id(ID_CONNECT, "Connect now", true, None);
     let mirror = MenuItem::with_id(ID_MIRROR, "Mirror", true, None);
-    // dialogs ship in stage 5 (egui); show the structure, keep disabled
-    let pair = MenuItem::with_id(ID_PAIR, "Pair device...", false, None);
-    let settings = MenuItem::with_id(ID_SETTINGS, "Settings...", false, None);
+    // dialogs run in a separate process (--pair / --settings)
+    let pair = MenuItem::with_id(ID_PAIR, "Pair device...", true, None);
+    let settings = MenuItem::with_id(ID_SETTINGS, "Settings...", true, None);
     let open_log = MenuItem::with_id(ID_OPEN_LOG, "Open log", true, None);
     let exit = MenuItem::with_id(ID_EXIT, "Exit", true, None);
 
@@ -106,6 +106,8 @@ fn drain_events(
         match ev.id().as_ref() {
             ID_CONNECT => spawn_action(cfg.clone(), tip_tx.clone(), main_thread_id, false),
             ID_MIRROR => spawn_action(cfg.clone(), tip_tx.clone(), main_thread_id, true),
+            ID_PAIR => launch_dialog("--pair"),
+            ID_SETTINGS => launch_dialog("--settings"),
             ID_OPEN_LOG => open_log(),
             ID_EXIT => EXIT.store(true, Ordering::Relaxed),
             _ => {}
@@ -143,14 +145,22 @@ fn spawn_action(cfg: Config, tip_tx: mpsc::Sender<String>, main_thread_id: u32, 
 }
 
 fn do_connect(cfg: &Config, mirror: bool) -> anyhow::Result<Option<String>> {
-    let Some(adb_path) = adb::resolve_adb(cfg) else {
+    // re-read the config so Settings changes apply without a tray restart
+    let cfg = Config::load_or_create().unwrap_or_else(|_| cfg.clone());
+    let Some(adb_path) = adb::resolve_adb(&cfg) else {
         anyhow::bail!("adb.exe not found - set adbPath in config");
     };
-    let serial = adb::connect_phone(&adb_path, cfg, true)?;
+    let serial = adb::connect_phone(&adb_path, &cfg, true)?;
     if serial.is_some() && mirror {
-        adb::launch_scrcpy_once(cfg)?;
+        adb::launch_scrcpy_once(&cfg)?;
     }
     Ok(serial)
+}
+
+fn launch_dialog(flag: &str) {
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = Command::new(exe).arg(flag).spawn();
+    }
 }
 
 fn open_log() {

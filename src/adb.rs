@@ -125,6 +125,30 @@ fn run_adb(adb: &Path, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// `adb pair ip:port code` — returns the combined stdout/stderr message.
+pub fn pair(adb: &Path, ip: &str, port: u16, code: &str) -> Result<String> {
+    let target = format!("{ip}:{port}");
+    let mut cmd = Command::new(adb);
+    cmd.args(["pair", &target, code]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let out = cmd
+        .output()
+        .with_context(|| format!("running {} pair", adb.display()))?;
+    let mut text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if text.is_empty() {
+        text = String::from_utf8_lossy(&out.stderr).trim().to_string();
+    }
+    if !out.status.success() {
+        anyhow::bail!("{text}");
+    }
+    Ok(text)
+}
+
 /// `adb connect host:port`, then verify it reached `device` state
 /// (an open-but-wrong port parks as `offline` and is rejected).
 /// Disconnects on failure so zombie entries do not accumulate.

@@ -3,6 +3,7 @@
 mod adb;
 mod bt;
 mod config;
+mod gui;
 mod log;
 mod portcache;
 mod scanner;
@@ -41,11 +42,24 @@ struct Cli {
     /// Only act if our phone just (re)connected via Bluetooth
     #[arg(long)]
     bt_check: bool,
+    /// Open the pairing dialog (own process, launched by the tray)
+    #[arg(long)]
+    pair: bool,
+    /// Open the settings dialog (own process, launched by the tray)
+    #[arg(long)]
+    settings: bool,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let cfg = Config::load_or_create()?;
+
+    if cli.pair {
+        return gui::run_pair();
+    }
+    if cli.settings {
+        return gui::run_settings();
+    }
 
     let want_connect = cli.connect || cli.mirror || cli.bt_check;
     if !want_connect {
