@@ -47,8 +47,10 @@ jobs:
         shell: pwsh
         run: |
           (Get-ChildItem -Recurse -Filter scrcpy.exe scrcpy | Select-Object -First 1).DirectoryName | Out-File -Encoding ascii scrcpy_dir.txt
-          choco install innosetup -y --no-progress
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
           if (-not (Test-Path $iscc)) { $iscc = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" }
           & $iscc "/DSrcExe=target\release" "/DSrcScrcpy=$(Get-Content scrcpy_dir.txt)" "/DDocsDir=." "/DOutputDir=installer" "installer\droidbridge.iss"
 
