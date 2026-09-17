@@ -30,6 +30,21 @@ jobs:
           $hash = (Get-FileHash -Algorithm SHA256 target/release/droidbridge_rs.exe).Hash
           "$hash  droidbridge_rs.exe" | Out-File -Encoding ascii target/release/droidbridge_rs.exe.sha256
 
+      - name: Assemble portable zip (exe + adb + scrcpy)
+        shell: pwsh
+        run: |
+          curl.exe -sL -o scrcpy.zip https://github.com/Genymobile/scrcpy/releases/download/v4.0/scrcpy-win64-v4.0.zip
+          Expand-Archive scrcpy.zip -DestinationPath scrcpy
+          $stage = "portable"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item target/release/droidbridge_rs.exe $stage/
+          $files = "scrcpy.exe", "adb.exe", "SDL2.dll", "AdbWinApi.dll", "AdbWinUsbApiDll.dll"
+          foreach ($f in $files) {
+            Copy-Item "scrcpy/scrcpy-win64-v4.0/$f" $stage/
+          }
+          Compress-Archive -Path "$stage/*" -DestinationPath droidbridge-portable-windows-x64.zip -Force
+          Get-ChildItem droidbridge-portable-windows-x64.zip | Select-Object Name, Length
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -37,3 +52,4 @@ jobs:
           files: |
             target/release/droidbridge_rs.exe
             target/release/droidbridge_rs.exe.sha256
+            droidbridge-portable-windows-x64.zip

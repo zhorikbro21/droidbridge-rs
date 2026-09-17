@@ -261,15 +261,26 @@ pub fn launch_scrcpy_once(cfg: &Config) -> Result<()> {
     Ok(())
 }
 
-/// Locate adb.exe: config path → sibling of scrcpy (version-compatible
-/// with the running scrcpy adb server) → SDK platform-tools → PATH →
-/// common install globs.
+/// The folder containing the running exe — first stop for portable
+/// setups where adb/scrcpy ship next to droidbridge_rs.exe.
+fn own_dir(exe_name: &str) -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let candidate = exe.parent()?.join(exe_name);
+    candidate.is_file().then_some(candidate)
+}
+
+/// Locate adb.exe: config path → own folder (portable zip) → sibling of
+/// scrcpy (version-compatible with the running scrcpy adb server) → SDK
+/// platform-tools → PATH → common install globs.
 pub fn resolve_adb(cfg: &Config) -> Option<PathBuf> {
     if !cfg.adb_path.is_empty() {
         let p = PathBuf::from(&cfg.adb_path);
         if p.is_file() {
             return Some(p);
         }
+    }
+    if let Some(p) = own_dir("adb.exe") {
+        return Some(p);
     }
     if let Some(scrcpy) = resolve_scrcpy(cfg)
         && let Some(dir) = scrcpy.parent()
@@ -291,13 +302,17 @@ pub fn resolve_adb(cfg: &Config) -> Option<PathBuf> {
     find_by_globs("adb.exe", &["scrcpy", "scrcpy-win"])
 }
 
-/// Locate scrcpy.exe: config path → PATH → common install globs.
+/// Locate scrcpy.exe: config path → own folder (portable zip) → PATH →
+/// common install globs.
 pub fn resolve_scrcpy(cfg: &Config) -> Option<PathBuf> {
     if !cfg.scrcpy_path.is_empty() {
         let p = PathBuf::from(&cfg.scrcpy_path);
         if p.is_file() {
             return Some(p);
         }
+    }
+    if let Some(p) = own_dir("scrcpy.exe") {
+        return Some(p);
     }
     if let Some(p) = find_in_path("scrcpy.exe") {
         return Some(p);

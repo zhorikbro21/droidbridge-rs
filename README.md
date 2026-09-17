@@ -73,13 +73,27 @@ Scheduled Task  ──►  droidbridge.exe --connect --bt-check
 
 ## Install
 
-### Prebuilt binary
+### Portable zip (recommended — everything inside)
 
-Grab `droidbridge.exe` from [Releases](../../releases) and put it anywhere on
-`PATH`.
+Download `droidbridge-portable-windows-x64.zip` from
+[Releases](../../releases), unpack anywhere, run `droidbridge_rs.exe`.
+The archive ships adb and scrcpy next to the exe — no other downloads.
+SmartScreen may ask once: *More info → Run anyway*.
 
-> **SmartScreen:** the exe is unsigned, so Windows may show "Windows protected
-> your PC". Click *More info → Run anyway*. Or build from source — see below.
+Friend-ready setup takes five minutes:
+
+1. Unpack, run `droidbridge_rs.exe` — Settings opens on first run.
+2. Enter your phone's IP (Tailscale IP recommended).
+3. Pair once: phone → *Wireless debugging → Pair device with pairing
+   code*, enter IP/port/code in the **Pair device** dialog.
+4. In Settings, press **Install task** — from now on the phone
+   reconnecting via Bluetooth auto-connects ADB within seconds.
+
+### Plain exe
+
+Grab `droidbridge_rs.exe` from [Releases](../../releases) and put it anywhere
+on `PATH`. adb is then autodetected (scrcpy folder, SDK platform-tools, PATH);
+scrcpy is only needed for mirroring.
 
 ### Build from source
 
@@ -113,6 +127,8 @@ droidbridge_rs.exe --bt-check       (with --connect) only act on a fresh
                                      Bluetooth connect event of YOUR phone
 droidbridge_rs.exe --pair           pairing dialog
 droidbridge_rs.exe --settings       settings dialog
+droidbridge_rs.exe --install        register the Bluetooth auto-connect task
+droidbridge_rs.exe --uninstall      remove it
 droidbridge_rs.exe                  tray mode (menu: Connect now / Mirror /
                                      Pair device... / Settings... / Open log / Exit)
 ```

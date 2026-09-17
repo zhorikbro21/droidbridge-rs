@@ -73,6 +73,10 @@ pub fn run(cfg: Config) -> anyhow::Result<()> {
     let main_thread_id = unsafe { GetCurrentThreadId() };
 
     log::write("tray started");
+    // first-run convenience: nothing configured yet — open Settings
+    if cfg.device_host.is_empty() {
+        launch_dialog("--settings");
+    }
     unsafe {
         let mut msg = MSG::default();
         'outer: loop {

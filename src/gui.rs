@@ -143,6 +143,27 @@ struct SettingsApp {
     bt_trigger_enabled: bool,
     scrcpy_on_connect: bool,
     saved: String,
+    task_busy: bool,
+    task_status: String,
+}
+
+thread_local! {
+    static TASK_RESULT: std::cell::RefCell<Option<String>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Run install/uninstall off-thread, then wake the UI.
+fn spawn_task_op(ctx: &egui::Context, install: bool) {
+    let ctx = ctx.clone();
+    std::thread::spawn(move || {
+        let msg = if install {
+            crate::installer::install().unwrap_or_else(|e| format!("Error: {e}"))
+        } else {
+            crate::installer::uninstall().unwrap_or_else(|e| format!("Error: {e}"))
+        };
+        TASK_RESULT.with(|r| *r.borrow_mut() = Some(msg));
+        ctx.request_repaint();
+    });
 }
 
 impl From<Config> for SettingsApp {
@@ -158,6 +179,12 @@ impl From<Config> for SettingsApp {
             bt_trigger_enabled: c.bt_trigger_enabled,
             scrcpy_on_connect: c.scrcpy_on_connect,
             saved: String::new(),
+            task_busy: false,
+            task_status: if crate::installer::is_installed() {
+                "Bluetooth auto-connect: installed".into()
+            } else {
+                "Bluetooth auto-connect: not installed".into()
+            },
         }
     }
 }
@@ -195,11 +222,41 @@ impl eframe::App for SettingsApp {
                 ui.label("Bluetooth trigger task enabled:");
                 ui.checkbox(&mut self.bt_trigger_enabled, "");
                 ui.end_row();
-                ui.label("Launch scrcpy on connect:");
+                ui.label("Mirror (scrcpy) automatically on every connect:");
                 ui.checkbox(&mut self.scrcpy_on_connect, "");
                 ui.end_row();
             });
-            ui.add_space(8.0);
+            ui.add_space(6.0);
+            ui.separator();
+            ui.label("Bluetooth auto-connect (fires after every phone BT connect):");
+            ui.add_space(2.0);
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(!self.task_busy, egui::Button::new("Install task"))
+                    .clicked()
+                {
+                    self.task_busy = true;
+                    spawn_task_op(&ctx, true);
+                }
+                if ui
+                    .add_enabled(!self.task_busy, egui::Button::new("Remove task"))
+                    .clicked()
+                {
+                    self.task_busy = true;
+                    spawn_task_op(&ctx, false);
+                }
+                if self.task_busy {
+                    ui.spinner();
+                }
+                if let Some(msg) = TASK_RESULT.with(|r| r.borrow_mut().take()) {
+                    self.task_status = msg;
+                    self.task_busy = false;
+                }
+                if !self.task_status.is_empty() {
+                    ui.label(&self.task_status);
+                }
+            });
+            ui.add_space(6.0);
             ui.horizontal(|ui| {
                 if ui.button("Save").clicked() {
                     self.saved = match self.to_config().and_then(|c| c.save().map(|_| c)) {

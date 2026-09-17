@@ -4,6 +4,7 @@ mod adb;
 mod bt;
 mod config;
 mod gui;
+mod installer;
 mod log;
 mod portcache;
 mod scanner;
@@ -48,6 +49,12 @@ struct Cli {
     /// Open the settings dialog (own process, launched by the tray)
     #[arg(long)]
     settings: bool,
+    /// Register the Bluetooth auto-connect scheduled task for this exe
+    #[arg(long)]
+    install: bool,
+    /// Remove the Bluetooth auto-connect scheduled task
+    #[arg(long)]
+    uninstall: bool,
 }
 
 fn main() -> Result<()> {
@@ -59,6 +66,12 @@ fn main() -> Result<()> {
     }
     if cli.settings {
         return gui::run_settings();
+    }
+    if cli.install {
+        return installer::install().map(|msg| println!("{msg}"));
+    }
+    if cli.uninstall {
+        return installer::uninstall().map(|msg| println!("{msg}"));
     }
 
     let want_connect = cli.connect || cli.mirror || cli.bt_check;

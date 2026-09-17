@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-09-17
+
+### Added
+
+- Self-installation: `--install` / `--uninstall` register and remove the
+  Bluetooth auto-connect scheduled task for the running exe (no admin
+  needed); also available as buttons in the Settings dialog.
+- Portable distribution: the release now ships a zip with
+  `droidbridge_rs.exe + adb.exe + scrcpy.exe`; the exe looks for
+  adb/scrcpy in its own folder first.
+- First-run convenience: starting the tray with no phone configured
+  opens the Settings dialog automatically.
+- UI: clearer Mirror toggle label; ASCII arrows (bundled egui font has
+  no "→" glyph).
+
 ## [0.1.0] - 2026-09-17
 
 ### Added
