@@ -7,3 +7,7 @@ portcache.json
 
 # local session docs
 /ИТОГИ_*.md
+
+# driver cab artifacts (never commit)
+/rtkbt*
+*.cab
