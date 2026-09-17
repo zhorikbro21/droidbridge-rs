@@ -43,11 +43,21 @@ jobs:
           Compress-Archive -Path "$stage/*" -DestinationPath droidbridge-portable-windows-x64.zip -Force
           Get-ChildItem droidbridge-portable-windows-x64.zip | Select-Object Name, Length
 
+      - name: Assemble Windows installer (Inno Setup)
+        shell: pwsh
+        run: |
+          (Get-ChildItem -Recurse -Filter scrcpy.exe scrcpy | Select-Object -First 1).DirectoryName | Out-File -Encoding ascii scrcpy_dir.txt
+          choco install innosetup -y --no-progress
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DSrcExe=target\release" "/DSrcScrcpy=$(Get-Content scrcpy_dir.txt)" "/DDocsDir=." "/DOutputDir=installer" "installer\droidbridge.iss"
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
             target/release/droidbridge_rs.exe
             target/release/droidbridge_rs.exe.sha256
             droidbridge-portable-windows-x64.zip
+            installer/droidbridge-setup-*.exe
