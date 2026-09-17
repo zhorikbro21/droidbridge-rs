@@ -64,8 +64,8 @@ impl eframe::App for PairApp {
         egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("Pair device");
             ui.add_space(6.0);
-            ui.label("Phone: Settings → Developer options → Wireless debugging");
-            ui.label("→ Pair device with pairing code, then enter the values:");
+            ui.label("Phone: Settings -> Developer options -> Wireless debugging");
+            ui.label("-> Pair device with pairing code, then enter the values:");
             ui.add_space(6.0);
             egui::Grid::new("pair").num_columns(2).show(ui, |ui| {
                 ui.label("Phone IP:");
