@@ -94,10 +94,10 @@ mod live_tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore = "live stand: phone at 192.0.2.10"]
+    #[ignore = "live stand: phone at 192.0.2.1"]
     async fn live_scan_full_range() {
         let start = std::time::Instant::now();
-        let open = scan_open_ports("192.0.2.10", 32768, 60999).await;
+        let open = scan_open_ports("192.0.2.1", 32768, 60999).await;
         eprintln!("total: {:?}, open ports: {open:?}", start.elapsed());
         assert!(!open.is_empty(), "scan found nothing on live phone");
     }

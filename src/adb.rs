@@ -359,10 +359,7 @@ mod tests {
     fn parses_device_states() {
         let devs = parse_devices(SAMPLE);
         assert_eq!(devs.len(), 4);
-        assert_eq!(
-            devs[0],
-            ("192.0.2.10:12345".into(), DeviceState::Device)
-        );
+        assert_eq!(devs[0], ("192.0.2.10:12345".into(), DeviceState::Device));
         assert_eq!(devs[1], ("10.0.0.8:40000".into(), DeviceState::Offline));
         assert_eq!(
             devs[2],
