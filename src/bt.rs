@@ -15,9 +15,28 @@ const LOG_NAME: &str = "Microsoft-Windows-Kernel-PnP/Configuration";
 /// XPath selecting event 410 records created within `window` of now.
 fn xpath(window: Duration) -> String {
     format!(
-        "*[System[(EventID=410) and TimeCreated[timediff(@SystemTime) <= {})]]]",
+        "*[System[(EventID=410) and TimeCreated[timediff(@SystemTime) <= {}]]]",
         window.as_millis()
     )
+}
+
+#[cfg(test)]
+mod xpath_shape {
+    use super::*;
+
+    /// Byte-exact check: a stray paren here once made wevtutil reject the
+    /// whole query with "syntax error at position 71" while the guard
+    /// silently reported "no BT events".
+    #[test]
+    fn xpath_is_exactly_balanced() {
+        let q = xpath(Duration::from_secs(90));
+        assert_eq!(
+            q,
+            "*[System[(EventID=410) and TimeCreated[timediff(@SystemTime) <= 90000]]]"
+        );
+        assert_eq!(q.matches('(').count(), q.matches(')').count());
+        assert_eq!(q.matches('[').count(), q.matches(']').count());
+    }
 }
 
 /// True if the raw XML of recent 410 events matches `mac`.
@@ -96,5 +115,45 @@ mod tests {
             USB\\VID_0BDA&amp;PID_8179\\00E04C0001\
             </Data></EventData></Event>";
         assert!(!event_xml_matches_mac(usb, "FEDCBA987654"));
+    }
+}
+
+#[cfg(test)]
+mod live_debug {
+    use super::*;
+
+    /// Prints the raw window content and the guard verdict — for
+    /// investigating why a live phone connect was rejected.
+    #[test]
+    #[ignore = "live stand: run right after a phone BT toggle"]
+    fn live_debug_raw_window() {
+        let cfg = crate::config::Config::load_or_create().unwrap();
+        eprintln!("deviceBtMac = {:?}", cfg.device_bt_mac);
+
+        let mut cmd = Command::new("wevtutil.exe");
+        cmd.args([
+            "qe",
+            LOG_NAME,
+            &format!("/q:{}", xpath(Duration::from_secs(300))),
+            "/f:xml",
+            "/c:50",
+            "/rd:true",
+        ]);
+        let out = cmd.output().unwrap();
+        let raw = String::from_utf8_lossy(&out.stdout);
+        eprintln!("--- raw window ({} bytes) ---", raw.len());
+        let q = format!("/q:{}", xpath(Duration::from_secs(300)));
+        eprintln!("xpath string: {:?}", q);
+        eprintln!("cmd debug: {:?}", cmd);
+        eprintln!("{}", &raw[..raw.len().min(3000)]);
+        eprintln!(
+            "contains <Event: {}, verdict: {}",
+            raw.contains("<Event"),
+            event_xml_matches_mac(&raw, &cfg.device_bt_mac)
+        );
+        eprintln!(
+            "recent_bt_connect(90s): {:?}",
+            recent_bt_connect(&cfg.device_bt_mac, Duration::from_secs(90))
+        );
     }
 }
