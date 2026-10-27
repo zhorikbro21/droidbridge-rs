@@ -246,6 +246,24 @@ pub fn scrcpy_running() -> bool {
     text.to_lowercase().contains("scrcpy.exe")
 }
 
+/// Serial to hand to `scrcpy -s`. The phone can be listed twice in
+/// `adb devices` at once — our explicit host:port connect plus adb's own
+/// mDNS auto-connect (`adb-<id>._adb-tls-connect._tcp`) — and then scrcpy
+/// aborts with "Multiple ADB devices". Prefer the explicit IP:port entry,
+/// fall back to any device entry, give up silently if adb is unreachable.
+fn mirror_serial(adb: &Path) -> Option<String> {
+    let devices: Vec<String> = parse_devices(&run_adb(adb, &["devices"]).ok()?)
+        .into_iter()
+        .filter(|(_, st)| *st == DeviceState::Device)
+        .map(|(serial, _)| serial)
+        .collect();
+    devices
+        .iter()
+        .find(|s| s.contains(':') && !s.starts_with("adb-"))
+        .cloned()
+        .or_else(|| devices.first().cloned())
+}
+
 /// Launch scrcpy unless an instance is already up (never spawn a second
 /// mirror window).
 pub fn launch_scrcpy_once(cfg: &Config) -> Result<()> {
@@ -255,8 +273,13 @@ pub fn launch_scrcpy_once(cfg: &Config) -> Result<()> {
     let Some(scrcpy) = resolve_scrcpy(cfg) else {
         anyhow::bail!("scrcpy.exe not found - set scrcpyPath in config");
     };
-    Command::new(&scrcpy)
-        .spawn()
+    let mut cmd = Command::new(&scrcpy);
+    if let Some(adb) = resolve_adb(cfg)
+        && let Some(serial) = mirror_serial(&adb)
+    {
+        cmd.arg("-s").arg(serial);
+    }
+    cmd.spawn()
         .with_context(|| format!("launching {}", scrcpy.display()))?;
     Ok(())
 }

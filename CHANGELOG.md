@@ -13,7 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   adb + scrcpy, registers the Bluetooth auto-connect task, optional tray
   autostart and desktop shortcut; proper uninstaller.
 
-## [Unreleased]
+## [0.1.3] - 2026-10-27
+
+### Fixed
+
+- scrcpy launch now passes `-s <serial>`: when the phone is listed twice
+  in `adb devices` at once (our explicit `connect host:port` plus adb's
+  own mDNS auto-connect `adb-…_adb-tls-connect._tcp`), scrcpy used to
+  abort with "Multiple ADB devices" and the mirror never opened. The
+  explicit IP:port serial is preferred, falling back to any device entry.
 
 ### Added
 
@@ -21,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   enabled, the mirror opens by itself whenever the phone appears on adb
   (covers adb's own mDNS auto-connect path). Max 2 tries per appearance;
   a manually closed mirror is never re-opened until the phone returns.
+  (Shipped in 0.1.2, documented here.)
 
 ## [0.1.1] - 2026-09-17
 
